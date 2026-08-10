@@ -11,3 +11,7 @@ secrets.local.md
 Release-jobs/**/src/
 **/node_modules/
 Release-jobs/**/deploy/
+Release-jobs/**/.env
+Release-jobs/**/.env.*
+!Release-jobs/**/.env.example
+!Release-jobs/**/.env.prod.example
