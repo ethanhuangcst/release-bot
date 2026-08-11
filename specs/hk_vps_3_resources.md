@@ -40,6 +40,7 @@ Compose 来源：`/root/service-compose.yaml`（`networks.default.name: portaine
 | 3 | `portainer.agent-mate.ai` | `portainer` | 9443 | 0 | 1 | |
 | 4 | `nginx.agent-mate.ai` | `root_nginx-proxy-manager_1` | 81 | 0 | 1 | |
 | 5 | `mypoke.trade`, `www.mypoke.trade` | `mypoke-web` | 3000 | 1 | 1 | LE 证书 id=1，到期约 2026-11-08 |
+| — | `kb.agent-mate.ai` | `kb-web` | 3000 | 1 | 1 | 2026-08-12 上线；Custom Locations → `kb-agent:8000`（`/mcp` `/sse` `/messages/` `/api/v1/kb/` `/healthz`） |
 
 Redirection / Dead / Stream hosts：空。
 
@@ -52,6 +53,7 @@ Redirection / Dead / Stream hosts：空。
 | `hcp-engagement-agent` | 运行中（~2 weeks） | `hcp.agent-mate.ai` | 3001 / 3200 / `127.0.0.1:6333` | `/data/compose/12/data` | MySQL `38.55.199.241:3306/hca` |
 | `mypoke-trade` | 运行中 | `mypoke.trade` (+ www) | 3002 / 6335 / 3201 | volumes + `/opt/mypoke-trade` | Postgres `101.132.156.250:5432/mypoke_trade_prod` |
 | `media-mkt-agent` | **未部署**（端口/域名已规划） | `media.mkt-agent.ai`（DNS 已指本机） | **预留 `3003`** | 计划 `/opt/social-media-mkt/data` | Postgres `101.132.156.250:5432/media_marketing`（schema `mia`，库已建） |
+| `kb-agent` | **运行中**（2026-08-12） | `kb.agent-mate.ai` | **`3006` / `3202` / `3203` / `127.0.0.1:6336`** | volumes `kb_qdrant_data` / `kb_blob_data` | Postgres `101.132.156.250:5432/kb_agent` |
 
 ---
 
@@ -120,13 +122,17 @@ Redirection / Dead / Stream hosts：空。
 | 3001 | `*` | hcp web | |
 | 3002 | `*` | mypoke web | |
 | **3003** | — | **预留 media-mkt-agent** | 当前空闲 |
+| **3006** | `*` | **kb-agent web** | `3006→3000`（容器 `kb-web`） |
 | 3200 | `*` | hcp mcp | |
 | 3201 | `*` | mypoke rag | 建议不对公网开放 |
+| **3202** | `*` | **kb-agent agent** | `3202→8000`（容器 `kb-agent`） |
+| **3203** | `*` | **kb-agent rag** | `3203→8001`（容器 `kb-rag`） |
 | 6333 | `127.0.0.1` | hcp qdrant | 本机回环 |
 | 6335 | `*` | mypoke agent | 建议不对公网开放 |
+| **6336** | `127.0.0.1` | **kb-agent qdrant** | `127.0.0.1:6336→6333`（容器 `kb-qdrant`） |
 | 25273 | `127.0.0.1` | containerd | 系统 |
 
-新应用请避开上表已占用端口；下一可用常见应用口：**3003**（已预留给 media）、之后 **3004+ / 3202+ / 6336+**。
+新应用请避开上表已占用/预留端口；media 用 **3003**；kb 已占用 **3006 / 3202 / 3203 / 6336**。
 
 ---
 
@@ -139,6 +145,8 @@ Redirection / Dead / Stream hosts：空。
 | `portainer_data` | ~3M | Portainer |
 | `mypoke-trade_mypoke_rag_pg_data` | ~47M | mypoke RAG Postgres |
 | `mypoke-trade_mypoke_web_uploads` | ~0.5M | mypoke 上传图 |
+| `kb-agent_kb_qdrant_data`（或 Portainer 命名的 `kb_qdrant_data`） | — | kb Qdrant |
+| `kb-agent_kb_blob_data`（或 `kb_blob_data`） | — | kb blob 原文 |
 
 ### Bind / 目录
 
@@ -160,6 +168,7 @@ Redirection / Dead / Stream hosts：空。
 | Postgres | `101.132.156.250:5432` | `mypoke_trade_prod` | mypoke-trade | 阿里云实例 |
 | Postgres | `101.132.156.250:5432` | `media_marketing` / `mia` | media-mkt-agent | 已建库；应用未上线 |
 | Postgres | `101.132.156.250:5432` | `media_crawler_mcp` | （开发/其它） | **勿给生产 media 复用** |
+| Postgres | `101.132.156.250:5432` | **`kb_agent`** | kb-agent | Alembic `005_import_batch`（2026-08-12 核实） |
 
 本节点内另有：`mypoke_rag`（容器 `mypoke-postgres-rag`，无主机端口）。
 
@@ -190,6 +199,7 @@ Redirection / Dead / Stream hosts：空。
 | `mypoke-rag` | 172.18.0.8 |
 | `mypoke-agent` | 172.18.0.9 |
 | `mypoke-web` | 172.18.0.10 |
+| `kb-agent` / `kb-web` / `kb-rag` / `kb-qdrant` | 2026-08-12 加入（IP 以节点为准） |
 
 ---
 
@@ -198,13 +208,14 @@ Redirection / Dead / Stream hosts：空。
 1. **只改目标 Stack / 对应 NPM Host / 对应 DNS**；禁止 `docker network rm` 或重建 `portainer_network`。  
 2. NPM 上 `hcp.agent-mate.ai` 存在 **两条** Proxy Host（#1 指 IP、#2 指容器名）——清理时只动 HCP，勿碰 mypoke / Portainer / NPM 自身。  
 3. `media.mkt-agent.ai` DNS 已指本机，但 **3003 与 Stack 尚未部署**。  
-4. Agent / RAG / Qdrant 主机端口默认不应对公网开 Cloudflare 记录。  
-5. 刷新本清单（脱敏）：在节点上执行 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，并只读查询 NPM `/root/data/database.sqlite` 的 `proxy_host`。
+4. `kb.agent-mate.ai` 已上线（Stack `kb-agent`，镜像 tag **`v0.1.1`**，端口 **3006/3202/3203/6336**）。  
+5. Agent / RAG / Qdrant 主机端口默认不应对公网开 Cloudflare 记录。  
+6. 刷新本清单（脱敏）：在节点上执行 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，并只读查询 NPM `/root/data/database.sqlite` 的 `proxy_host`。
 
 ---
 
 ## 11. 来源
 
-- 实机：`38.55.192.140`（2026-08-10 SSH 只读）  
-- 会话/任务：`Release-jobs/mypoke.trade/task-details.md`、`Release-jobs/media-marketing-agent/task-details.md`  
-- Compose 参考：`Release-jobs/mypoke.trade/deploy/docker-compose.prod.yml`
+- 实机：`38.55.192.140`（2026-08-10 SSH 只读；kb 段 2026-08-12 发布会话更新）  
+- 会话/任务：`Release-jobs/mypoke.trade/task-details.md`、`Release-jobs/media-marketing-agent/task-details.md`、`Release-jobs/kb.agent-mate.ai/task-details.md`  
+- Compose 参考：`Release-jobs/mypoke.trade/deploy/docker-compose.prod.yml`、`Release-jobs/kb.agent-mate.ai/docker.compose.prod.yml`
