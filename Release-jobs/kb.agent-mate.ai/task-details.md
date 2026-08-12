@@ -1,10 +1,11 @@
 # Release Job: kb.agent-mate.ai
 
 Updated: 2026-08-12  
-Status: **first prod deploy complete** (smoke OK 2026-08-12)  
+Status: **rebuilt after ClickFix incident** — public OK on **`v0.1.2`** (HTML inject check 0; see knowledge note)  
 Guide: `Release-jobs/kb.agent-mate.ai/step-by-step.md`  
-IMAGE_TAG: **`v0.1.1`**
-Host ports: **`3006` / `3202` / `3203` / `127.0.0.1:6336`**
+Incident: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md` · ADR-004  
+IMAGE_TAG: **`v0.1.2`** (was `v0.1.1` / `09a9d68` pre-incident)  
+Host ports: **`3006` / `3202` / `3203` / `6336`** (confirm qdrant bind is loopback-only — follow-up)
 
 ## Source
 
@@ -93,6 +94,7 @@ Recommended order before first stack create:
 | 2026-08-12 | User: **证书+挂载完成** → 进入 Smoke |
 | 2026-08-12 | User: **冒烟通过** → 首次生产发布完成 |
 | 2026-08-12 | ChatBox MCP：修 `https` + 去掉双 `Bearer` 后 **完成** |
+| 2026-08-12 | **Incident**: Fake CAPTCHA / ClickFix via injected `data:text/javascript;base64` in kb-web HTML (post-deploy; smokes earlier same day were clean). Contained (Stop stack / Disable NPM / delete `kb` DNS). Partial secret rotation. Rebuild tag **`v0.1.2`** @ `09a9d68`; verify HTML on loopback then restore NPM+DNS. Docs: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md`, ADR-004. **Open**: DB/app key rotation; qdrant `127.0.0.1` bind; host root-cause audit. |
 
 ## Pending
 
