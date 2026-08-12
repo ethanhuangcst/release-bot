@@ -6,6 +6,10 @@
 secrets.env
 secrets.local.md
 **/secrets.local.*
+**/secret.md
+**/secrets.md
+svr_hk_vps_*/secret.md
+svr_hk_vps_*/secrets*.md
 .idea/
 .vscode/
 Release-jobs/**/src/

@@ -1,11 +1,11 @@
 # Release Job: kb.agent-mate.ai
 
 Updated: 2026-08-12  
-Status: **rebuilt after ClickFix incident** — public OK on **`v0.1.2`** (HTML inject check 0; see knowledge note)  
+Status: **hardened after ClickFix** — public on **`v0.1.3`** (CSP nonce live; Next 15.5.7; `/healthz` ok)  
 Guide: `Release-jobs/kb.agent-mate.ai/step-by-step.md`  
-Incident: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md` · ADR-004  
-IMAGE_TAG: **`v0.1.2`** (was `v0.1.1` / `09a9d68` pre-incident)  
-Host ports: **`3006` / `3202` / `3203` / `6336`** (confirm qdrant bind is loopback-only — follow-up)
+Incident KB: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md` · checklist · prevent note · ADR-004  
+IMAGE_TAG: **`v0.1.3`** (prior: `v0.1.2` clean rebuild ← `v0.1.1` / `09a9d68`)  
+Host ports: **`3006` / `3202` / `3203` / `6336`** (qdrant loopback bind still follow-up)
 
 ## Source
 
@@ -94,7 +94,7 @@ Recommended order before first stack create:
 | 2026-08-12 | User: **证书+挂载完成** → 进入 Smoke |
 | 2026-08-12 | User: **冒烟通过** → 首次生产发布完成 |
 | 2026-08-12 | ChatBox MCP：修 `https` + 去掉双 `Bearer` 后 **完成** |
-| 2026-08-12 | **Incident**: Fake CAPTCHA / ClickFix via injected `data:text/javascript;base64` in kb-web HTML (post-deploy; smokes earlier same day were clean). Contained (Stop stack / Disable NPM / delete `kb` DNS). Partial secret rotation. Rebuild tag **`v0.1.2`** @ `09a9d68`; verify HTML on loopback then restore NPM+DNS. Docs: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md`, ADR-004. **Open**: DB/app key rotation; qdrant `127.0.0.1` bind; host root-cause audit. |
+| 2026-08-12 | **Incident**: Fake CAPTCHA / ClickFix via injected `data:text/javascript;base64` in kb-web HTML (post-deploy; smokes earlier same day were clean). Contained (Stop / Disable NPM / delete `kb` DNS). Rebuild **`v0.1.2`**. Likely vector clue: Next **15.5.2** [CVE-2025-66478](https://nextjs.org/blog/CVE-2025-66478). Shipped **`v0.1.3`**: nonce CSP + Next **15.5.7**; public CSP verified; `/healthz` ok after NPM Save. KB: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md`, `prevent-clickfix-html-inject.md`, `ir-public-webapp-compromise-checklist.md`. **Open**: DB/app secrets; qdrant bind; HTML monitor; host audit. |
 
 ## Pending
 

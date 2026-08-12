@@ -25,7 +25,9 @@ Alternatives rejected for the reopen path: enable DNS first then “watch the br
 ## Consequences
 - Slightly longer restore time (extra verify gates).
 - Operators need SSH or an in-network probe path documented per node.
-- Incident lessons live in `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md`.
+- Incident lessons: `specs/knowledge/ops/kb-agent-clickfix-incident-2026-08-12.md`.
+- IR checklist: `specs/knowledge/ops/ir-public-webapp-compromise-checklist.md`.
+- Applied successfully for reopen on `v0.1.2`; later `v0.1.3` added CSP + Next CVE patch (verify `Content-Security-Policy` on public URL after deploy).
 
 ## Date
 2026-08-12
