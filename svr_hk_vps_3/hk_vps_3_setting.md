@@ -94,6 +94,9 @@ Redirection / Dead / Stream hosts：空。
 | `mypoke-trade` | 运行中 | `mypoke.trade` (+ www) | 3002 / 6335 / 3201 | volumes + `/opt/mypoke-trade` | Postgres `101.132.156.250:5432/mypoke_trade_prod` |
 | `media-mkt-agent` | **未部署**（已规划） | `media.mkt-agent.ai`（DNS 已指本机） | **预留 `3003`** | 计划 `/opt/social-media-mkt/data` | Postgres `101.132.156.250:5432/media_marketing`（schema `mia`） |
 | `kb-agent` | **运行中**（2026-08-12） | `kb.agent-mate.ai` | **`3006` / `3202` / `3203` / `127.0.0.1:6336`** | volumes `kb_qdrant_data` / `kb_blob_data` | Postgres `101.132.156.250:5432/kb_agent` |
+| `what2eat` | **未部署**（已规划） | `what2eat.food` | **预留 `3004→3000`** | — | Postgres `101.132.156.250:5432/**what2eat**`（专用库） |
+| `where2play` | **未部署**（已规划） | `where2play.place` | **预留 `3005→3000`** | TBD | TBD |
+| `places-agent` | **运行中**（2026-08-20） | `places.agent-mate.ai` | **`3007→3000`** | 无应用卷 | Postgres `101.132.156.250:5432/**places_agent**`（专用库） |
 
 ---
 
@@ -194,6 +197,10 @@ Redirection / Dead / Stream hosts：空。
 | 6333 | `127.0.0.1` | hcp qdrant | 本机回环 |
 | 6335 | `*` | mypoke agent | 建议不对公网开放 |
 | **6336** | `127.0.0.1` | **kb-agent qdrant** | `127.0.0.1:6336→6333` |
+| **3004** | — | **预留 places what2eat** | 规划 `3004→3000`；NPM → `what2eat-web:3000` |
+| **3005** | — | **预留 places where2play** | 规划 `3005→3000` |
+| **3007** | `*` | **places-agent** debug | `3007→3000`；NPM → `places-agent:3000` |
+| **5435** | — | **what2eat 本地 dev Postgres** | 仅开发者机器 `docker-compose.dev.yml`；野草云3 不监听 |
 | 25273 | `127.0.0.1` | containerd | 系统 |
 
 新应用请避开上表已占用/预留端口。
@@ -233,6 +240,8 @@ Redirection / Dead / Stream hosts：空。
 | Postgres | `101.132.156.250:5432` | `media_marketing` / `mia` | media-mkt-agent | 已建库；应用未上线 |
 | Postgres | `101.132.156.250:5432` | `media_crawler_mcp` | （其它） | **勿给生产 media 复用** |
 | Postgres | `101.132.156.250:5432` | **`kb_agent`** | kb-agent | Alembic 已用 |
+| Postgres | `101.132.156.250:5432` | **`what2eat`** | what2eat（规划） | 专用库；勿复用 kb/mypoke/media |
+| Postgres | `101.132.156.250:5432` | **`places_agent`** | places-agent | 专用库；勿复用 `what2eat` |
 
 本节点内另有：`mypoke_rag`（容器 `mypoke-postgres-rag`，无主机端口）。
 
