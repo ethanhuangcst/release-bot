@@ -2,7 +2,7 @@
 
 > **节点**：野草云3 · `38.55.192.140`  
 > **角色**：应用/边缘节点（标准平台层 + 多应用共存）  
-> **采集**：SSH 实机只读快照 · **as_of: 2026-08-12**（kb 上线后）  
+> **采集**：SSH 实机只读快照 · **as_of: 2026-08-20**（places-agent 上线后；kb 段仍以 2026-08-12 为准）  
 > **原则**：本文件不写密码 / Token；凭证仅存本机密钥库。  
 > **姊妹节点蓝图**：[`../svr_hk_vps_4/hk_vps_4_settings.md`](../svr_hk_vps_4/hk_vps_4_settings.md)（目标与本文平台层同构）。
 
@@ -43,6 +43,9 @@
 | `hcp-engagement-agent` | 运行中 | `hcp.agent-mate.ai` | 外部 MySQL `…/hca` |
 | `mypoke-trade` | 运行中 | `mypoke.trade` | 外部 Postgres `…/mypoke_trade_prod` |
 | `kb-agent` | 运行中 | `kb.agent-mate.ai` | 外部 Postgres `…/kb_agent` |
+| `places-agent` | 运行中 | `places.agent-mate.ai` | 外部 Postgres `…/places_agent` |
+| `what2eat` | 未部署（端口/域名已规划） | `what2eat.food` | 外部 Postgres `…/what2eat` |
+| `where2play` | 未部署（端口/域名已规划） | `where2play.place` | 库 TBD（勿复用 `places_agent` / `what2eat`） |
 | `media-mkt-agent` | 未部署（端口/域名已规划） | `media.mkt-agent.ai` | 外部 Postgres `…/media_marketing`（schema `mia`） |
 
 ---
@@ -81,6 +84,7 @@ Compose 来源：`/root/service-compose.yaml`（`networks.default.name: portaine
 | 4 | `nginx.agent-mate.ai` | `root_nginx-proxy-manager_1` | 81 | 0 | 1 | |
 | 5 | `mypoke.trade`, `www.mypoke.trade` | `mypoke-web` | 3000 | 1 | 1 | LE 证书；到期约 2026-11-08 |
 | — | `kb.agent-mate.ai` | `kb-web` | 3000 | 1 | 1 | Custom Locations → `kb-agent:8000`（`/mcp` `/sse` `/messages/` `/api/v1/kb/` `/healthz`） |
+| — | `places.agent-mate.ai` | **`places-agent`** | **3000** | 1 | 1 | **无** Custom Locations；Websockets On；Advanced：`proxy_buffering off`、timeout 300s。**不要**把 Forward Port 写成主机 `3007` |
 
 Redirection / Dead / Stream hosts：空。
 
@@ -178,6 +182,67 @@ Redirection / Dead / Stream hosts：空。
 
 ---
 
+### 4.5 `places-agent`
+
+单容器、单进程（ADR-016）：operator HTML + admin BFF + `/v1` HTTP 工具 + MCP（`/mcp`、`/sse`、`/messages`）。**不要**按 kb 拆第二个容器或 Custom Locations。
+
+| 服务 | 容器 | 镜像 | 映射 | 角色 |
+| --- | --- | --- | --- | --- |
+| agent | `places-agent` | `ghcr.io/ethanhuangcst/places.agent-mate.ai/agent:<IMAGE_TAG>` | **`3007→3000`** | 唯一进程；容器内听 `0.0.0.0:3000` |
+
+| 资源 | 占用 |
+| --- | --- |
+| Stack 名 | **`places-agent`**（Portainer，一字不差） |
+| 仓库 | `ethanhuangcst/places.agent-mate.ai` · compose `docker-compose.prod.yml`（image-only） |
+| 网络 | `portainer_network`（external） |
+| 主机 debug | **`3007`** → 容器 `3000`（`curl http://127.0.0.1:3007/v1/health`）。**不是** NPM Forward Port |
+| NPM | Host `places.agent-mate.ai` → **`places-agent:3000`**；Websockets；无 Custom Locations |
+| 公网 | `https://places.agent-mate.ai` · health `GET /v1/health` 与 `GET /health` → `{"agent":"places-agent","ok":true,…}` |
+| MCP | Cursor：`https://places.agent-mate.ai/mcp`；ChatBox：`https://places.agent-mate.ai/sse`（不要 `/mcp`） |
+| 本机数据卷 | **无**（不要 `places_agent_data` / `/data/places-agent.db`） |
+| 主库（外部） | Postgres `101.132.156.250:5432` / **`places_agent`**（专用；勿复用 `what2eat` / `kb_agent` / `mypoke_trade_prod`） |
+| 启动 | 镜像 entrypoint：`prisma migrate deploy` + seed，然后 `tsx server.ts` |
+| 运维注意 | recreate 后 NPM Host **再 Save**；`IMAGE_TAG` 用 GHCR sha/`v*`/`latest`，勿用分支 `main`；验 health 用 `/v1/health`（不是 kb 的 `/healthz`） |
+
+**部署方式**：Portainer Stack `places-agent`；GHCR pull-only；库在阿里云。步骤：`Release-jobs/places.family/places-agent-instruction.md`。
+
+---
+
+### 4.6 `what2eat`（规划中，节点上尚无容器）
+
+薄 Next + 同域 BFF。地图密钥只在 places-agent。聊天走 agent `/v1/chat`，**不要**在本栈放 `OPENAI_*`。
+
+| 项 | 规划值 |
+| --- | --- |
+| Stack / 容器 | `what2eat` / `what2eat-web` |
+| 域名 | `what2eat.food`（apex A → `38.55.192.140`） |
+| 主机端口 | **`3004→3000`**（尚未监听；勿占 **`3007`**） |
+| NPM | `http://what2eat-web:3000`（Forward Port 必须是容器 3000） |
+| 主库（外部） | Postgres `101.132.156.250:5432` / **`what2eat`**（专用；勿复用 `places_agent`） |
+| 上游 agent | 同网 `http://places-agent:3000`；env：`PLACES_AGENT_BASE_URL` + `PLACES_AGENT_CALLER_KEY`（勿用遗留名 `PLACES_AGENT_URL` / `PLACES_AGENT_API_KEY`） |
+| 本机数据卷 | **无** SQLite 卷 |
+| 仓库计划 | 伞仓 `2.what2eat/2eat-specs/6.deployment-plan.md`；目标 repo `ethanhuangcst/what2eat.food` |
+
+Blocker：prod `Dockerfile` / `docker-compose.prod.yml` / GHCR workflow（本地已有 Next 应用）。
+
+---
+
+### 4.7 `where2play`（规划中，节点上尚无容器）
+
+薄 Next + 同域 BFF。行程引擎在 agent（`plan_itinerary`）。无应用运行时。
+
+| 项 | 规划值 |
+| --- | --- |
+| Stack / 容器 | `where2play` / `where2play-web` |
+| 域名 | `where2play.place`（注意不是 `.places`） |
+| 主机端口 | **`3005→3000`**（尚未监听；勿占 **`3004`/`3007`**） |
+| NPM | `http://where2play-web:3000` |
+| 主库 | **TBD**；勿复用 `places_agent` / `what2eat` |
+| 上游 agent | `http://places-agent:3000`；`PLACES_AGENT_BASE_URL` + `PLACES_AGENT_CALLER_KEY` |
+| 仓库计划 | 伞仓 `3.where2play/2play-specs/6.deployment-plan.md`；目标 repo `ethanhuangcst/where2play.places` |
+
+---
+
 ## 5. 主机端口分配表
 
 | 端口 | 绑定 | 占用方 | 说明 |
@@ -189,7 +254,10 @@ Redirection / Dead / Stream hosts：空。
 | 3001 | `*` | hcp web | |
 | 3002 | `*` | mypoke web | |
 | **3003** | — | **预留 media-mkt-agent** | 当前空闲 |
+| **3004** | — | **预留 places what2eat** | 规划 `3004→3000`；NPM → `what2eat-web:3000` |
+| **3005** | — | **预留 places where2play** | 规划 `3005→3000` |
 | **3006** | `*` | **kb-agent web** | `3006→3000` |
+| **3007** | `*` | **places-agent** | **占用** `3007→3000`（debug）；NPM **必须** `places-agent:3000`，禁止 Forward `3007` |
 | 3200 | `*` | hcp mcp | |
 | 3201 | `*` | mypoke rag | 建议不对公网开放 |
 | **3202** | `*` | **kb-agent agent** | `3202→8000` |
@@ -197,10 +265,7 @@ Redirection / Dead / Stream hosts：空。
 | 6333 | `127.0.0.1` | hcp qdrant | 本机回环 |
 | 6335 | `*` | mypoke agent | 建议不对公网开放 |
 | **6336** | `127.0.0.1` | **kb-agent qdrant** | `127.0.0.1:6336→6333` |
-| **3004** | — | **预留 places what2eat** | 规划 `3004→3000`；NPM → `what2eat-web:3000` |
-| **3005** | — | **预留 places where2play** | 规划 `3005→3000` |
-| **3007** | `*` | **places-agent** debug | `3007→3000`；NPM → `places-agent:3000` |
-| **5435** | — | **what2eat 本地 dev Postgres** | 仅开发者机器 `docker-compose.dev.yml`；野草云3 不监听 |
+| **5435** | — | **what2eat 本地 dev Postgres** | 仅开发者机器；野草云3 不监听 |
 | 25273 | `127.0.0.1` | containerd | 系统 |
 
 新应用请避开上表已占用/预留端口。
@@ -218,6 +283,8 @@ Redirection / Dead / Stream hosts：空。
 | `mypoke-trade_mypoke_web_uploads` | ~0.5M | mypoke 上传图 |
 | `kb-agent_kb_qdrant_data`（或 `kb_qdrant_data`） | — | kb Qdrant |
 | `kb-agent_kb_blob_data`（或 `kb_blob_data`） | — | kb blob |
+
+places-agent **无** named volume（库在阿里云 `places_agent`）。
 
 ### Bind / 目录
 
@@ -240,7 +307,7 @@ Redirection / Dead / Stream hosts：空。
 | Postgres | `101.132.156.250:5432` | `media_marketing` / `mia` | media-mkt-agent | 已建库；应用未上线 |
 | Postgres | `101.132.156.250:5432` | `media_crawler_mcp` | （其它） | **勿给生产 media 复用** |
 | Postgres | `101.132.156.250:5432` | **`kb_agent`** | kb-agent | Alembic 已用 |
-| Postgres | `101.132.156.250:5432` | **`what2eat`** | what2eat（规划） | 专用库；勿复用 kb/mypoke/media |
+| Postgres | `101.132.156.250:5432` | **`what2eat`** | what2eat（未部署） | 专用库；勿复用 kb/mypoke/media/`places_agent` |
 | Postgres | `101.132.156.250:5432` | **`places_agent`** | places-agent | 专用库；勿复用 `what2eat` |
 
 本节点内另有：`mypoke_rag`（容器 `mypoke-postgres-rag`，无主机端口）。
@@ -255,7 +322,7 @@ Redirection / Dead / Stream hosts：空。
 | hcp `web` / `hcp-twin-mcp` | ~428MB / 1.19GB |
 | `qdrant/qdrant` | ~281MB 级 |
 | `jc21/nginx-proxy-manager` | ~1.79GB |
-| `portainer/portainer-ce:lts` | ~187MB |
+| `ghcr.io/ethanhuangcst/places.agent-mate.ai/agent` | 以 Packages 当前 tag 为准 |
 
 ---
 
@@ -265,7 +332,7 @@ Redirection / Dead / Stream hosts：空。
 | --- | --- |
 | `root_nginx-proxy-manager_1` | 172.18.0.2 |
 | `portainer` | 172.18.0.3 |
-| HCP / mypoke / kb 各容器 | 以 `docker network inspect portainer_network` 为准 |
+| HCP / mypoke / kb / **places-agent** 各容器 | 以 `docker network inspect portainer_network` 为准 |
 
 IP 仅作排障参考；NPM 上游应使用**容器名**，不要写死旧 IP。
 
@@ -277,15 +344,17 @@ IP 仅作排障参考；NPM 上游应使用**容器名**，不要写死旧 IP。
 2. NPM 上 `hcp.agent-mate.ai` 有两条 Host（IP vs 容器名）——清理时勿碰其他域名。  
 3. `media.mkt-agent.ai` DNS 已指本机，Stack/端口 **3003** 尚未部署。  
 4. `kb.agent-mate.ai`：Stack recreate 后 NPM 再 Save；验 `/healthz`。  
-5. Agent / RAG / Qdrant 主机端口默认不对公网开 Cloudflare。  
-6. `IMAGE_TAG` 必须是 GHCR 已发布 tag（勿用分支名 `main`）。  
-7. 刷新本清单：节点上 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，只读 NPM DB 的 `proxy_host`。
+5. `places.agent-mate.ai`：单容器 `places-agent:3000`；recreate 后 NPM 再 Save；验 `GET /v1/health`。主机 `3007` 仅 debug。勿给 MCP 加 Custom Locations。  
+6. 规划中的 `what2eat`（`3004`）与 `where2play`（`3005`）勿占用 `3007`；agent 同网 URL 用容器名 `places-agent:3000`。  
+7. Agent / RAG / Qdrant 主机端口默认不对公网开 Cloudflare。  
+8. `IMAGE_TAG` 必须是 GHCR 已发布 tag（勿用分支名 `main`）。  
+9. 刷新本清单：节点上 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，只读 NPM DB 的 `proxy_host`。
 
 ---
 
 ## 11. 来源
 
-- 实机：`38.55.192.140`（2026-08-10 SSH；kb 段 2026-08-12）  
-- 任务：`Release-jobs/mypoke.trade/`、`Release-jobs/media-marketing-agent/`、`Release-jobs/kb.agent-mate.ai/`  
+- 实机：`38.55.192.140`（2026-08-10 SSH；kb 段 2026-08-12；places-agent 2026-08-20）  
+- 任务：`Release-jobs/mypoke.trade/`、`Release-jobs/media-marketing-agent/`、`Release-jobs/kb.agent-mate.ai/`、`Release-jobs/places.family/`  
 - 手册：`knowledge/03-semi-auto-release.md`、`knowledge/09-isolation-safety.md`  
 - ADR：`specs/adr/ADR-002-…`、`specs/adr/ADR-003-…`

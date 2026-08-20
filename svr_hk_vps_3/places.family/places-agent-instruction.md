@@ -2,7 +2,7 @@
 
 Guided release for stack **`places-agent`** (first wave of the places family). Follow in order. Do **not** skip GHCR before Portainer pull.
 
-**Capability (2026-08-19):** MVP-1 and **MVP-2 accepted** in the app (operator confirmed usable). Production still waits on Docker/CI blockers below. Six tools on HTTP+MCP; **`POST /v1/chat`** and Tripadvisor enrich are **HTTP-only** ([ADR-020](../../../workspace-specs/adr/ADR-020-http-only-chat-and-enrich.md)). Timed itinerary: `plan_itinerary` with `detail:"timed"` ([ADR-022](../../../workspace-specs/adr/ADR-022-timed-itinerary.md)). Live vendors must not return `fixture_` ([ADR-021](../../../workspace-specs/adr/ADR-021-live-vendor-no-fixture.md)). Local `make quality` is not part of this VPS path ([ADR-024](../../../workspace-specs/adr/ADR-024-quality-gates-typescript-7.md)).
+**Capability (2026-08-20):** Agent stack is **live** on 野草云3. MVP-1/MVP-2 tools in the image. Six tools on HTTP+MCP; **`POST /v1/chat`** and Tripadvisor enrich are **HTTP-only** ([ADR-020](../../../workspace-specs/adr/ADR-020-http-only-chat-and-enrich.md)). Timed itinerary: `plan_itinerary` with `detail:"timed"` ([ADR-022](../../../workspace-specs/adr/ADR-022-timed-itinerary.md)). Live vendors must not return `fixture_` ([ADR-021](../../../workspace-specs/adr/ADR-021-live-vendor-no-fixture.md)).
 
 **Unlike `kb-agent`:** one Node process serves **operator admin UI**, **admin BFF** (`/api/admin/*`), **HTTP tools** (`/v1/*`), and **MCP** (`/mcp`, `/sse`, `/messages`) on the **same container**. NPM uses **one** Proxy Host → `places-agent:3000`. **Do not** add kb-style Custom Locations to a second upstream.
 
@@ -35,7 +35,7 @@ Guided release for stack **`places-agent`** (first wave of the places family). F
 | Image (proposed) | `ghcr.io/ethanhuangcst/places.agent-mate.ai/agent:<IMAGE_TAG>` |
 | Process entry | **`node server.ts`** (ADR-016) — not `next start`, not a second MCP sidecar |
 | Container listen | **`3000`** |
-| Host bind (debug only) | **proposed `3007→3000`** — confirm free on node before deploy |
+| Host bind (debug only) | **`3007→3000` occupied** (2026-08-20). NPM Forward is container **`3000`**, never `3007`. |
 | NPM Forward | **`places-agent` : `3000`** (container port, **not** `3007`) |
 | Database | **PostgreSQL** Aliyun **`places_agent`** on `101.132.156.250:5432` ([ADR-025](../../../workspace-specs/adr/ADR-025-places-agent-postgres-prisma.md)). Dedicated db — **not** `what2eat`. **No** SQLite volume. |
 | Network | existing **`portainer_network`** (**never delete/recreate**) |
