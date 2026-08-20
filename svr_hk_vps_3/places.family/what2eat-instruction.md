@@ -1,8 +1,10 @@
 # Step-by-step — what2eat.food → 野草云3
 
-Guided release for stack **`what2eat`** (second wave). **Canonical plan:** `2.what2eat/2eat-specs/6.deployment-plan.md` (this file is a pointer + inventory facts).
+Guided release for stack **`what2eat`** (second wave). **Canonical plan:** `2.what2eat/2eat-specs/2eat-deployment-plan.md` (this file is a pointer + inventory facts).
 
-**Gate:** places-agent is **live**. Remaining: prod Docker/CI in `ethanhuangcst/what2eat.food`, Aliyun DB **`what2eat`**, caller key, host **`3004`**.
+**Product DoD:** MVP-1–4 **Complete** (signed 2026-08-21). Local live E2E + user confirm done; this guide is **prod deploy only**.
+
+**Gate:** places-agent is **live**. Remaining for 野草云3: prod Docker/CI in `ethanhuangcst/what2eat.food`, Aliyun DB **`what2eat`**, caller key, host **`3004`**.
 
 | Item | Value |
 | --- | --- |
