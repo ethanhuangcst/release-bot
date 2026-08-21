@@ -2,7 +2,7 @@
 
 Guided release for stack **`places-agent`** (first wave of the places family). Follow in order. Do **not** skip GHCR before Portainer pull.
 
-**Capability (2026-08-20):** Agent stack is **live** on 野草云3. MVP-1/MVP-2 tools in the image. Six tools on HTTP+MCP; **`POST /v1/chat`** and Tripadvisor enrich are **HTTP-only** ([ADR-020](../../../workspace-specs/adr/ADR-020-http-only-chat-and-enrich.md)). Timed itinerary: `plan_itinerary` with `detail:"timed"` ([ADR-022](../../../workspace-specs/adr/ADR-022-timed-itinerary.md)). Live vendors must not return `fixture_` ([ADR-021](../../../workspace-specs/adr/ADR-021-live-vendor-no-fixture.md)).
+**Capability (2026-08-21, MVP-7):** Agent stack is **live** on 野草云3. Core tools on **HTTP + MCP**; **`POST /v1/chat`** and Tripadvisor enrich remain **HTTP-only** ([ADR-020](../../../workspace-specs/adr/ADR-020-http-only-chat-and-enrich.md)). Timed / LLM itinerary: `plan_itinerary` (`ITINERARY_MODE=llm` default) plus split tools **`discover_places`** / **`arrange_day`** on **both** HTTP (`/v1/...`) and MCP. Live vendors must not return `fixture_` ([ADR-021](../../../workspace-specs/adr/ADR-021-live-vendor-no-fixture.md)).
 
 **Unlike `kb-agent`:** one Node process serves **operator admin UI**, **admin BFF** (`/api/admin/*`), **HTTP tools** (`/v1/*`), and **MCP** (`/mcp`, `/sse`, `/messages`) on the **same container**. NPM uses **one** Proxy Host → `places-agent:3000`. **Do not** add kb-style Custom Locations to a second upstream.
 
@@ -165,8 +165,9 @@ First-boot admin (seed):
 | `DATABASE_URL` | yes | `postgresql://…@101.132.156.250:5432/places_agent` (dedicated; never `what2eat`) |
 | `PUBLIC_BASE_URL` / `APP_URL` | yes | `https://places.agent-mate.ai` |
 | `PLACES_VENDOR_MODE` | yes | `live` in production |
+| `ITINERARY_MODE` | yes (pin) | **`llm`** (image/compose default). Set `legacy` only for emergency rollback of itinerary planner. |
 | `GOOGLE_DIRECT_FORCE_FAIL` | **must not set** | Dev-only Worker fallback switch. `NODE_ENV=production` rejects it at startup. |
-| `OPENAI_*` | yes | Quanzil on agent (`https://quanzil.com/v1`, not `api.openai.com`) — required for `POST /v1/chat` |
+| `OPENAI_*` | yes | Quanzil on agent (`https://quanzil.com/v1`, not `api.openai.com`) — required for `POST /v1/chat`, LLM itinerary, `arrange_day` |
 | `PROMPT_ID` / `GLOSSARY_ID` / `CATALOG_PACK` | yes | Pin on rollback with `IMAGE_TAG` |
 | Map vendor keys | as needed | `AMAP_*`, `GOOGLE_MAPS_*`, `GMAPS_MCP_*`, `TRIPADVISOR_*`, `OPEN_METEO_*` |
 | `QUANZIL_MODE` | **must not set** | Fixture LLM is local/E2E only |
@@ -269,8 +270,10 @@ Run in order. Both surfaces must pass.
 ### H1 — Agent / HTTP tools (no admin session)
 
 - [ ] `GET https://places.agent-mate.ai/v1/health` → `{ "agent": "places-agent", "ok": true, "data": { "tools": [...] } }`
+- [ ] Health `tools` includes at least: `search_restaurants`, `search_places`, `plan_itinerary`, `discover_places`, `arrange_day`, `get_place_details`, `geocode`, `navigate`, `chat`
 - [ ] `GET https://places.agent-mate.ai/health` → same shape (alias)
 - [ ] Public `/` HTML does **not** contain `data:text/javascript;base64` (ClickFix IOC check)
+- [ ] Admin **Instructions** guide lists `discover_places` / `arrange_day` and `POST /v1/discover_places` / `POST /v1/arrange_day`
 
 ### H2 — Operator admin webapp
 
@@ -321,9 +324,24 @@ curl -sS -H "Authorization: Bearer $CALLER_KEY" \
 - [ ] `plan_itinerary` timed — `days` present (not a `timed_no_places` empty plan when vendors are live)
 - [ ] `/v1/chat` — HTTP 200; **not** registered as an MCP tool
 
+### H3c — discover_places + arrange_day (HTTP; MVP-7)
+
+```bash
+curl -sS -H "Authorization: Bearer $CALLER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"city":"Hong Kong","bounds":{"start":"2026-08-25","end":"2026-08-25"},"locale":"EN"}' \
+  https://places.agent-mate.ai/v1/discover_places | head -c 600
+
+# Then POST /v1/arrange_day with candidates from discover (dayIndex: 1). Requires ITINERARY_MODE=llm + OPENAI_*.
+```
+
+- [ ] `discover_places` — `ok:true` with `candidates.places` / `candidates.restaurants` (≤8 each when live)
+- [ ] `arrange_day` — `ok:true` with a single-day plan / blocks (or explicit 502 `errors.arrange_day_failed` if LLM misconfigured — do not ship with broken Quanzil)
+- [ ] Both routes require Bearer; missing key → 401
+
 ### H4 — MCP (same caller key)
 
-- [ ] **Cursor:** `.cursor/mcp.json` → `url` `https://places.agent-mate.ai/mcp`, Bearer header → **initialize** returns `serverInfo.name` **`places-agent`**; **tools/list** shows six tools (`search_restaurants`, `search_places`, `get_place_details`, `geocode`, `navigate`, `plan_itinerary`)
+- [ ] **Cursor:** `.cursor/mcp.json` → `url` `https://places.agent-mate.ai/mcp`, Bearer header → **initialize** returns `serverInfo.name` **`places-agent`**; **tools/list** includes core tools **plus** `discover_places` and `arrange_day` (`search_restaurants`, `search_places`, `get_place_details`, `geocode`, `navigate`, `plan_itinerary`, `discover_places`, `arrange_day`)
 - [ ] **ChatBox:** Type **Remote (HTTP/SSE)**; URL **`https://places.agent-mate.ai/sse`**; header `Authorization=Bearer …`; enable MCP on a **new chat** → Test OK (**not** `/mcp`)
 - [ ] **`POST /v1/chat`** is **HTTP-only** (ADR-020) — do not expect it as an MCP tool
 
@@ -351,8 +369,9 @@ ChatBox is **not** this gate ([ADR-019](../../../workspace-specs/adr/ADR-019-htt
 2. Set Portainer `IMAGE_TAG` to new **published** sha (not branch name)
 3. **Update stack** with **Recreate + Pull**
 4. NPM → **Save** Proxy Host `places.agent-mate.ai` (even if unchanged)
-5. Re-run **H1**, **H3b**, and **H4** (health + tools + MCP); spot-check admin login if session secret unchanged
-6. If Prisma schema changed: **backup Aliyun `places_agent` first**
+5. Re-run **H1**, **H3b**, **H3c**, and **H4** (health + tools + discover/arrange + MCP); spot-check admin login if session secret unchanged
+6. Confirm Portainer `ITINERARY_MODE` is `llm` (or intentional `legacy` rollback)
+7. If Prisma schema changed: **backup Aliyun `places_agent` first**
 
 ---
 
