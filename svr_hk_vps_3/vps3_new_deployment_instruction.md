@@ -42,7 +42,7 @@
 
 ### 多应用共存（硬规则）
 
-节点上已有其他 Stack（历史上如：`hcp-engagement-agent`、`mypoke-trade`、`media-mkt-agent`、`kb-agent`）。你的计划必须：
+节点上已有其他 Stack（历史上如：`hcp-engagement-agent`、`mypoke-trade`、`media-mkt-agent`、`kb-agent`、`places-agent`；规划中如 **`framework-sdd-works`**）。你的计划必须：
 
 - 使用唯一的 **Stack 名**、**容器名**、**卷名**、**主机端口**、**域名**，并尽量使用独立 **数据库名**
 - **只**改本应用的 NPM Proxy Host 与本应用的 DNS 记录
@@ -58,7 +58,7 @@
 | NPM Forward Port | **容器监听端口**（例如 Next 常见 `3000`），**不是**主机映射端口 |
 | Forward Hostname | 优先 **Docker DNS 名** = `portainer_network` 上的 `container_name`（例如 `myapp-web`） |
 
-主机端口以当前资源清单为准（`svr_hk_vps_3/hk_vps_3_setting.md`）或询问运维；勿复用已被占用的 `3001` / `3002` / `3003` / …。
+主机端口以当前资源清单为准（[`hk_vps_3_setting.md`](./hk_vps_3_setting.md)）或询问运维；勿复用已被占用的 `3001`–`3007`、`3200`–`3203` 等。示例：**framework.sdd.works** 规划 `3008→3000`（web）+ `3204→3041`（MCP），NPM Forward 仍用容器 `3000` / `3041`。
 
 ---
 
@@ -267,7 +267,8 @@ networks:
 | `knowledge/03-semi-auto-release.md` | 步骤顺序 |
 | `knowledge/09-isolation-safety.md` | 多应用安全 |
 | `knowledge/04-portainer.md` / `05-nginx-proxy-manager.md` / `08-cloudflare.md` | 各工具细节 |
-| `svr_hk_vps_3/hk_vps_3_setting.md` | 野草云3 当前端口/域名/Stack（过期则刷新） |
+| [`hk_vps_3_setting.md`](./hk_vps_3_setting.md) | 野草云3 当前端口/域名/Stack（过期则刷新） |
+| [`framework-sdd-works-deployment-instruction.md`](./framework-sdd-works-deployment-instruction.md) | **framework.sdd.works** 逐步发布（双容器 + `/mcp` Custom Location；Aliyun `framework_sdd`） |
 | `.claude/skills/release-guide/SKILL.md` | Agent 对话协议 |
 
 有疑问时，优先沿用手册占位符与本节点共享栈，不要另发明反代或 registry。
