@@ -481,7 +481,7 @@ IP 仅作排障参考；NPM 上游应使用**容器名**，不要写死旧 IP。
 8. Agent / RAG / Qdrant 主机端口默认不对公网开 Cloudflare。
 9. `IMAGE_TAG` 必须是 GHCR 已发布 tag（勿用分支名 `main`）。
 10. 刷新本清单：节点上 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，只读 NPM DB 的 `proxy_host`。
-11. `hcp-mcp.agent-mate.ai`（NPM #11）：Streamable HTTP 长响应依赖 Advanced `proxy_buffering off` + `proxy_read_timeout 300s`，清理 Host 时勿丢；zone 现 SSL 模式 **Flexible**，该 Host **不得**开 Force SSL（301 循环）；对外 MCP 无鉴权，公网暴露风险知情记录在 hcp 仓 release.md §6.1。
+11. `hcp-mcp.agent-mate.ai`（NPM #11）：Streamable HTTP 长响应依赖 Advanced `proxy_buffering off` + `proxy_read_timeout 300s`，清理 Host 时勿丢；zone 现 SSL 模式 **Flexible**，该 Host **不得**开 Force SSL（301 循环）；对外 MCP 无鉴权，公网暴露风险知情记录在 hcp 仓 release.md §6.1。zone 迁 Full (strict) 已立项：hcp 仓 OPS2-01（pb-19，Sprint 2 增补 task-03），执行件本仓 [Release-jobs/zone-ssl-full-strict/task-details.md](../Release-jobs/zone-ssl-full-strict/task-details.md)。
 12. 共享网络容器**别名**必须全节点唯一：hcp 栈 Qdrant 已改挂专属别名 `hcp-qdrant`——曾与 kb 的 `qdrant` 别名重名，Docker DNS 轮询致 hcp 检索随机打进 kb 的 Qdrant（静默空返回，hcp 仓 DEF-008，2026-10-22 修复）。
 
 ---
