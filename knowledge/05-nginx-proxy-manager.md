@@ -53,12 +53,13 @@
 - 避免 **Flexible**  
 - 公网 **80** 须到达 NPM（HTTP-01）  
 
-### Flexible 陷阱（2026-10-22 实发）
+### Flexible 陷阱（2026-10-22 实发；同日已迁 Full (strict)）
 
-- 现网 zone `agent-mate.ai` SSL 模式为 **Flexible**（CF 以 `http:80` 回源）。此模式下 Proxy Host **不得**开 Force SSL：http → https 301 循环，整站不可达。
+- zone `agent-mate.ai` SSL 模式当日曾为 **Flexible**（CF 以 `http:80` 回源）。此模式下 Proxy Host **不得**开 Force SSL：http → https 301 循环，整站不可达。**当日已迁 Full (strict)**（见下），陷阱解除。
 - 实例：`hcp-mcp.agent-mate.ai`（Host #11）开 `ssl_forced` 后经 CF 全部 301；关掉即恢复。无源站证书的 Host（如 `hcp.agent-mate.ai`）在 Flexible 下天然可跑；有 LE 证书的 Host 证书放着无害，Force SSL 仍须关。
 - 经 NPM API 建 Host 时字段名为 `allow_websocket_upgrade`（非 `websockets`）；LE 证书 POST `/api/nginx/certificates` 不带 `meta`（邮箱取自管理员账号）。
-- 迁 Full / Full (strict) 属 **zone 级**动作：先给所有 Host 配源站证书，再统一切换并逐站复验。已立项执行件：`Release-jobs/zone-ssl-full-strict/task-details.md`（hcp 仓 OPS2-01，2026-10-22）。
+- **连续签发证书会连发多次 Nginx reload**：2026-10-22 三连签后运行中的 nginx master 出现脏状态（代理引擎 `:80` 全部落默认 404、响应无 `X-Served-By`），磁盘配置与 `nginx -t` 均正常。修复：容器内 `nginx -s reload` 重同步（零停机）。教训：API 批量签发/改 Host 后若 `/api` 突然 openresty 404，先怀疑运行配置脏，reload 即愈；批量操作逐个间隔执行可规避。
+- 迁 Full / Full (strict) 属 **zone 级**动作：先给所有 Host 配源站证书，再统一切换并逐站复验。已于 2026-10-22 完成（OPS2-01）：执行件 `Release-jobs/zone-ssl-full-strict/task-details.md`，执行记录见其 §7。
 
 ## 502 优先查
 

@@ -93,14 +93,14 @@ Compose 来源：`/root/service-compose.yaml`（`networks.default.name: portaine
 | ID  | Domains                            | Forward                      | Port     | SSL forced | Enabled | 备注                                                                                                                        |
 | --- | ---------------------------------- | ---------------------------- | -------- | ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
 | 1   | `hcp.agent-mate.ai`                | `38.55.192.140`              | 3001     | 0          | 1       | 与 #2 重复；建议只保留容器名上游                                                                                                        |
-| 2   | `hcp.agent-mate.ai`                | `hcp-engagement-agent-web-1` | 3001     | 0          | 1       | 推荐保留                                                                                                                      |
-| 3   | `portainer.agent-mate.ai`          | `portainer`                  | 9443     | 0          | 1       |                                                                                                                           |
-| 4   | `nginx.agent-mate.ai`              | `root_nginx-proxy-manager_1` | 81       | 0          | 1       |                                                                                                                           |
+| 2   | `hcp.agent-mate.ai`                | `hcp-engagement-agent-web-1` | 3001     | 1          | 1       | LE 证书 **#11**（2026-10-22，至 2027-01-20）；Force SSL 已开（zone Full strict 后） |
+| 3   | `portainer.agent-mate.ai`          | `portainer`                  | 9443     | 1          | 1       | LE 证书 **#12**（2026-10-22，至 2027-01-20）；上游自签 9443 不受影响 |
+| 4   | `nginx.agent-mate.ai`              | `root_nginx-proxy-manager_1` | 81       | 1          | 1       | LE 证书 **#13**（2026-10-22，至 2027-01-20）；管理面 |
 | 5   | `mypoke.trade`, `www.mypoke.trade` | `mypoke-web`                 | 3000     | 1          | 1       | LE 证书；到期约 2026-11-08                                                                                                      |
 | —   | `kb.agent-mate.ai`                 | `kb-web`                     | 3000     | 1          | 1       | Custom Locations → `kb-agent:8000`（`/mcp` `/sse` `/messages/` `/api/v1/kb/` `/healthz`）                                   |
 | —   | `places.agent-mate.ai`             | `places-agent`               | **3000** | 1          | 1       | **无** Custom Locations；Websockets On；Advanced：`proxy_buffering off`、timeout 300s。**不要**把 Forward Port 写成主机 `3007`         |
 | —   | `framework.sdd.works`              | `framework-sdd-web`          | **3000** | —          | —       | **规划**（未上线）：Custom Location `/mcp` → `framework-sdd-mcp:3041`（kb 式双容器；**不是** places 单进程）。Websockets On；Advanced 同 places。 |
-| **11** | `hcp-mcp.agent-mate.ai` | `hcp-engagement-agent-hcp-engagement-mcp-1` | 3300 | 0 | 1 | 2026-10-22 新增（对外 MCP 2.0 八工具）；LE 证书 **#10**（至 2027-01-20）；Websockets On；Advanced：`proxy_buffering off` + `proxy_read_timeout 300s`（Streamable HTTP 必需）；**ssl_forced=0**——zone 现为 Flexible，开了即 301 循环 |
+| **11** | `hcp-mcp.agent-mate.ai` | `hcp-engagement-agent-hcp-engagement-mcp-1` | 3300 | 1 | 1 | 2026-10-22 新增（对外 MCP 2.0 八工具）；LE 证书 **#10**（至 2027-01-20）；Websockets On；Advanced：`proxy_buffering off` + `proxy_read_timeout 300s`（Streamable HTTP 必需）；Force SSL 已开（zone 迁 Full strict 后，2026-10-22） |
 
 
 Redirection / Dead / Stream hosts：空。
@@ -481,7 +481,7 @@ IP 仅作排障参考；NPM 上游应使用**容器名**，不要写死旧 IP。
 8. Agent / RAG / Qdrant 主机端口默认不对公网开 Cloudflare。
 9. `IMAGE_TAG` 必须是 GHCR 已发布 tag（勿用分支名 `main`）。
 10. 刷新本清单：节点上 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，只读 NPM DB 的 `proxy_host`。
-11. `hcp-mcp.agent-mate.ai`（NPM #11）：Streamable HTTP 长响应依赖 Advanced `proxy_buffering off` + `proxy_read_timeout 300s`，清理 Host 时勿丢；zone 现 SSL 模式 **Flexible**，该 Host **不得**开 Force SSL（301 循环）；对外 MCP 无鉴权，公网暴露风险知情记录在 hcp 仓 release.md §6.1。zone 迁 Full (strict) 已立项：hcp 仓 OPS2-01（pb-19，Sprint 2 增补 task-03），执行件本仓 [Release-jobs/zone-ssl-full-strict/task-details.md](../Release-jobs/zone-ssl-full-strict/task-details.md)。
+11. `hcp-mcp.agent-mate.ai`（NPM #11）：Streamable HTTP 长响应依赖 Advanced `proxy_buffering off` + `proxy_read_timeout 300s`，清理 Host 时勿丢；zone SSL 模式已于 2026-10-22 迁 **Full (strict)**（OPS2-01，四橙云 Host 均挂 LE 证书并开 Force SSL；执行记录 [Release-jobs/zone-ssl-full-strict/task-details.md](../Release-jobs/zone-ssl-full-strict/task-details.md) §7）；对外 MCP 无鉴权，公网暴露风险知情记录在 hcp 仓 release.md §6.1。
 12. 共享网络容器**别名**必须全节点唯一：hcp 栈 Qdrant 已改挂专属别名 `hcp-qdrant`——曾与 kb 的 `qdrant` 别名重名，Docker DNS 轮询致 hcp 检索随机打进 kb 的 Qdrant（静默空返回，hcp 仓 DEF-008，2026-10-22 修复）。
 
 ---

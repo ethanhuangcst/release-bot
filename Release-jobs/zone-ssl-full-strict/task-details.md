@@ -71,3 +71,15 @@
 - 本仓 `svr_hk_vps_3/hk_vps_3_setting.md`：§10.11 Flexible 注更新为已迁 Full；各 Host 证书号刷新。
 - `knowledge/05-nginx-proxy-manager.md` Flexible 陷阱节补「已迁移」结论。
 - hcp 仓：OPS2-01 close（走 `sdd-dod.mdc` close confirm）。
+
+## 7. 执行记录（2026-10-22）
+
+| 项 | 结果 |
+| --- | --- |
+| Phase 0 | 影响面收窄：zone 内橙云仅 4（hcp / hcp-mcp / portainer / nginx）；kb / media / places 灰云直连不受影响；mypoke / sdd.works 独立 zone（mypoke 源站证书已自动续至 2027-01-07，旧档案 2026-11-08 为陈账） |
+| Phase 1 | LE #11→Host 2、#12→Host 3、#13→Host 4 签发挂载（均至 2027-01-20），全程 `ssl_forced` 保持关 |
+| 插曲 | 三连签触发密集 reload，NPM 运行中 nginx master 脏状态（`/api` 全 openresty 404，磁盘配置与 `nginx -t` 正常）→ 容器内 `nginx -s reload` 修复，零停机；后续 PUT 改为逐个 + 6s 间隔 + API 健康检查，未复发（教训已入 knowledge 05） |
+| Phase 2 | 四橙云域名 `curl --resolve` 直验源站：全部有效 LE 证书 + 服务 200 |
+| Phase 3 | 用户面板切 **Full**：8 站矩阵全绿（mypoke 307 为语言跳转，`/zh-CN/catalog` 200），无 526 |
+| Phase 4 | 用户面板切 **Full (strict)**：8 站 + hcp-mcp 八工具全绿；四 Host（2/3/4/11）重开 Force SSL，https 全 200、http 直连正确 301 无循环 |
+| 回滚 | 未触发 |
