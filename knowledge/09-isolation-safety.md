@@ -23,6 +23,7 @@
 | --- | --- |
 | Portainer Stack | `<STACK_NAME>` = 与应用唯一对应，勿用 `app` / `stack` / `web` 等泛名 |
 | Compose `container_name` / 服务名 | 带应用前缀，如 `<APP_SLUG>-web`，避免多个栈都叫 `web` |
+| 共享网网络别名（`networks.aliases`） | **全节点唯一**，带 `<APP_SLUG>` 前缀（如 `hcp-qdrant`）；重名别名被 Docker DNS 轮询，请求随机打进别家容器——hcp 与 kb 的 `qdrant` 别名重名曾致 hcp 检索静默打进 kb 的 Qdrant（2026-10-22 修复，hcp 仓 DEF-008） |
 | Volume | 带 `<APP_SLUG>` 前缀；勿挂载其他应用的具名卷 |
 | 主机端口 | 每应用一套；部署前在节点上核对未被占用 |
 | 域名 | 每应用独立 `<APP_DOMAIN>`；禁止改他人域名的 Proxy Host |

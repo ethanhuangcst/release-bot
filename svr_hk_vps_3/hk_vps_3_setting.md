@@ -2,7 +2,7 @@
 
 > **节点**：野草云3 · `38.55.192.140`  
 > **角色**：应用/边缘节点（标准平台层 + 多应用共存）  
-> **采集**：SSH 实机只读快照 · **as_of: 2026-09-18**（framework-sdd-works 隔离检查；media-mkt web 已在跑；kb 段 2026-08-12；places-agent 2026-08-20）  
+> **采集**：SSH 实机只读快照 · **as_of: 2026-10-22**（hcp 2.0 四服务 + `hcp-mcp.agent-mate.ai` 公网入口，Portainer/NPM API 只读实查；此前 framework 隔离检查 2026-09-18、places 2026-08-20、kb 2026-08-12）  
 > **原则**：本文件不写密码 / Token；凭证仅存本机密钥库。  
 > **姊妹节点蓝图**：`[../svr_hk_vps_4/hk_vps_4_settings.md](../svr_hk_vps_4/hk_vps_4_settings.md)`（目标与本文平台层同构）。
 
@@ -43,7 +43,7 @@
 
 | Stack                  | 状态            | 域名                     | 主库                                            |
 | ---------------------- | ------------- | ---------------------- | --------------------------------------------- |
-| `hcp-engagement-agent` | 运行中           | `hcp.agent-mate.ai`    | 外部 MySQL `…/hca`                              |
+| `hcp-engagement-agent` | 运行中           | `hcp.agent-mate.ai` · `hcp-mcp.agent-mate.ai`（对外 MCP） | 外部 MySQL `…/hca`                              |
 | `mypoke-trade`         | 运行中           | `mypoke.trade`         | 外部 Postgres `…/mypoke_trade_prod`             |
 | `kb-agent`             | 运行中           | `kb.agent-mate.ai`     | 外部 Postgres `…/kb_agent`                      |
 | `places-agent`         | 运行中           | `places.agent-mate.ai` | 外部 Postgres `…/places_agent`                  |
@@ -100,6 +100,7 @@ Compose 来源：`/root/service-compose.yaml`（`networks.default.name: portaine
 | —   | `kb.agent-mate.ai`                 | `kb-web`                     | 3000     | 1          | 1       | Custom Locations → `kb-agent:8000`（`/mcp` `/sse` `/messages/` `/api/v1/kb/` `/healthz`）                                   |
 | —   | `places.agent-mate.ai`             | `places-agent`               | **3000** | 1          | 1       | **无** Custom Locations；Websockets On；Advanced：`proxy_buffering off`、timeout 300s。**不要**把 Forward Port 写成主机 `3007`         |
 | —   | `framework.sdd.works`              | `framework-sdd-web`          | **3000** | —          | —       | **规划**（未上线）：Custom Location `/mcp` → `framework-sdd-mcp:3041`（kb 式双容器；**不是** places 单进程）。Websockets On；Advanced 同 places。 |
+| **11** | `hcp-mcp.agent-mate.ai` | `hcp-engagement-agent-hcp-engagement-mcp-1` | 3300 | 0 | 1 | 2026-10-22 新增（对外 MCP 2.0 八工具）；LE 证书 **#10**（至 2027-01-20）；Websockets On；Advanced：`proxy_buffering off` + `proxy_read_timeout 300s`（Streamable HTTP 必需）；**ssl_forced=0**——zone 现为 Flexible，开了即 301 循环 |
 
 
 Redirection / Dead / Stream hosts：空。
@@ -113,7 +114,7 @@ Redirection / Dead / Stream hosts：空。
 
 | Stack / 项目             | 状态                           | 公网域名                   | 主机端口                                                    | 本机数据                                      | 外部库                                                           |
 | ---------------------- | ---------------------------- | ---------------------- | ------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------- |
-| `hcp-engagement-agent` | 运行中                          | `hcp.agent-mate.ai`    | 3001 / 3200 / `127.0.0.1:6333`                          | `/data/compose/12/data`                   | MySQL `38.55.199.241:3306/hca`                                |
+| `hcp-engagement-agent` | 运行中                          | `hcp.agent-mate.ai` · `hcp-mcp.agent-mate.ai` | 3001 / 3200 / `127.0.0.1:3205` / `127.0.0.1:6333`                          | `/data/compose/12/data`                   | MySQL `38.55.199.241:3306/hca`                                |
 | `mypoke-trade`         | 运行中                          | `mypoke.trade` (+ www) | 3002 / 6335 / 3201                                      | volumes + `/opt/mypoke-trade`             | Postgres `101.132.156.250:5432/mypoke_trade_prod`             |
 | `media-mkt-agent`      | **运行中**（2026-09-18 见 web 容器） | `media.mkt-agent.ai`   | `3003→3000`                                             | 计划 `/opt/social-media-mkt/data`           | Postgres `101.132.156.250:5432/media_marketing`（schema `mia`） |
 | `kb-agent`             | **运行中**（2026-08-12）          | `kb.agent-mate.ai`     | `3006` **/** `3202` **/** `3203` **/** `127.0.0.1:6336` | volumes `kb_qdrant_data` / `kb_blob_data` | Postgres `101.132.156.250:5432/kb_agent`                      |
@@ -136,8 +137,9 @@ Redirection / Dead / Stream hosts：空。
 
 | 服务           | 容器                                    | 镜像                                                      | 映射                    | 角色       |
 | ------------ | ------------------------------------- | ------------------------------------------------------- | --------------------- | -------- |
-| web          | `hcp-engagement-agent-web-1`          | `ghcr.io/ethanhuangcst/hcp-engagement-agent/web:latest` | `3001→3001`           | Next/BFF |
-| hcp-twin-mcp | `hcp-engagement-agent-hcp-twin-mcp-1` | `…/hcp-twin-mcp:latest`                                 | `3200→3200`           | MCP      |
+| web          | `hcp-engagement-agent-web-1`          | `ghcr.io/ethanhuangcst/hcp-engagement-agent/web:<IMAGE_TAG>`（实跑 `sha-d9989ae`） | `3001→3001`           | Next/BFF |
+| hcp-twin-mcp | `hcp-engagement-agent-hcp-twin-mcp-1` | `…/hcp-twin-mcp:<IMAGE_TAG>`（同上）                                 | `3200→3200`           | MCP      |
+| hcp-engagement-mcp | `hcp-engagement-agent-hcp-engagement-mcp-1` | `…/hcp-engagement-mcp:<IMAGE_TAG>`（同上） | `127.0.0.1:3205→3300` | 对外 MCP 2.0（八工具，Streamable HTTP，ADR-008） |
 | qdrant       | `hcp-engagement-agent-qdrant-1`       | `qdrant/qdrant:v1.14.1`                                 | `127.0.0.1:6333→6333` | 向量库（仅本机） |
 
 
@@ -146,9 +148,11 @@ Redirection / Dead / Stream hosts：空。
 | ------------ | --------------------------------------------------------------------- |
 | Compose 工作目录 | `/data/compose/12/`（Portainer stack id 12）                            |
 | Bind mounts  | `/data/compose/12/data` → `/data`；`…/data/qdrant` → `/qdrant/storage` |
-| 网络           | `portainer_network`                                                   |
+| 网络 | `portainer_network`（Qdrant 挂**专属别名 `hcp-qdrant`**，勿再用 `qdrant`，见 §10.12） |
 | 主库（外部）       | MySQL `38.55.199.241:3306` / DB `hca`                                 |
-| 内网 URL       | `MCP_URL=http://hcp-twin-mcp:3200`；`QDRANT_URL=http://qdrant:6333`    |
+| 内网 URL       | `MCP_URL=http://hcp-twin-mcp:3200`；`QDRANT_URL=http://hcp-qdrant:6333`（专属别名，见 §10.12）    |
+| 公网 MCP 入口 | `https://hcp-mcp.agent-mate.ai/mcp`（Cloudflare → NPM Host #11 → 容器 3300；八工具；**无鉴权**，勿叠 ssl_forced） |
+| 生产 IMAGE_TAG | `sha-d9989ae`（2026-10-22 Portainer API 实查，三镜像同 tag） |
 
 
 **部署方式**：Portainer Stack；镜像来自 GHCR；NPM 反代 web；库在独立 MySQL 机。
@@ -363,6 +367,7 @@ Admin portal（Keys / Settings / Framework 缓存树 / 账户）+ **Streamable H
 | **3202**    | `*`         | **kb-agent agent**             | `3202→8000`                                                                |
 | **3203**    | `*`         | **kb-agent rag**               | `3203→8001`                                                                |
 | **3204**    | —           | **预留 framework-sdd-works mcp** | 规划 `3204→3041`；NPM Custom Location `/mcp` → `framework-sdd-mcp:3041`       |
+| **3205** | `127.0.0.1` | **hcp 对外 MCP** | `127.0.0.1:3205→3300`，loopback 运维后门；公网走 NPM 容器名（Host #11） |
 | 6333        | `127.0.0.1` | hcp qdrant                     | 本机回环                                                                       |
 | 6335        | `*`         | mypoke agent                   | 建议不对公网开放                                                                   |
 | **6336**    | `127.0.0.1` | **kb-agent qdrant**            | `127.0.0.1:6336→6333`                                                      |
@@ -438,7 +443,7 @@ places-agent **无** named volume（库在阿里云 `places_agent`）。framewor
 | 镜像                                                 | Size（约）                        |
 | -------------------------------------------------- | ------------------------------ |
 | mypoke `web` / `agent` / `rag` / `postgres-rag`    | ~412MB / 2.2GB / 2.2GB / 621MB |
-| hcp `web` / `hcp-twin-mcp`                         | ~428MB / 1.19GB                |
+| hcp `web` / `hcp-twin-mcp` / `hcp-engagement-mcp` | ~428MB / 1.19GB / 以 GHCR Packages 实测为准 |
 | `qdrant/qdrant`                                    | ~281MB 级                       |
 | `jc21/nginx-proxy-manager`                         | ~1.79GB                        |
 | `ghcr.io/ethanhuangcst/places.agent-mate.ai/agent` | 以 Packages 当前 tag 为准           |
@@ -476,6 +481,8 @@ IP 仅作排障参考；NPM 上游应使用**容器名**，不要写死旧 IP。
 8. Agent / RAG / Qdrant 主机端口默认不对公网开 Cloudflare。
 9. `IMAGE_TAG` 必须是 GHCR 已发布 tag（勿用分支名 `main`）。
 10. 刷新本清单：节点上 `docker ps`、`ss -lntup`、`docker volume ls`、`docker network inspect portainer_network`，只读 NPM DB 的 `proxy_host`。
+11. `hcp-mcp.agent-mate.ai`（NPM #11）：Streamable HTTP 长响应依赖 Advanced `proxy_buffering off` + `proxy_read_timeout 300s`，清理 Host 时勿丢；zone 现 SSL 模式 **Flexible**，该 Host **不得**开 Force SSL（301 循环）；对外 MCP 无鉴权，公网暴露风险知情记录在 hcp 仓 release.md §6.1。
+12. 共享网络容器**别名**必须全节点唯一：hcp 栈 Qdrant 已改挂专属别名 `hcp-qdrant`——曾与 kb 的 `qdrant` 别名重名，Docker DNS 轮询致 hcp 检索随机打进 kb 的 Qdrant（静默空返回，hcp 仓 DEF-008，2026-10-22 修复）。
 
 ---
 
@@ -483,7 +490,7 @@ IP 仅作排障参考；NPM 上游应使用**容器名**，不要写死旧 IP。
 
 ## 11. 来源
 
-- 实机：`38.55.192.140`（2026-08-10 SSH；kb 段 2026-08-12；places-agent 2026-08-20；隔离刷新 2026-09-18：media-mkt web 在跑；framework-sdd-works 仍未部署，`3008`/`3204` 空闲）  
+- 实机：`38.55.192.140`（2026-08-10 SSH；kb 段 2026-08-12；places-agent 2026-08-20；隔离刷新 2026-09-18：media-mkt web 在跑；framework-sdd-works 仍未部署，`3008`/`3204` 空闲；hcp 2.0 段 2026-10-22：Portainer/NPM API 只读实查 + 公网冒烟）  
 - 任务：`Release-jobs/mypoke.trade/`、`Release-jobs/media-marketing-agent/`、`Release-jobs/kb.agent-mate.ai/`、`Release-jobs/places.family/`、`specs/release/framework-sdd-works-deployment-instruction.md`  
 - 手册：`knowledge/03-semi-auto-release.md`、`knowledge/09-isolation-safety.md`  
 - ADR：`specs/adr/ADR-002-…`、`specs/adr/ADR-003-…`

@@ -16,6 +16,8 @@
 - 多节点 IP 不同：换节点部署时必须改 DNS  
 - **只改本应用** `<APP_DOMAIN>`（或子域）；不要改 `<EXISTING_APPS>` 里其他域名的记录  
 - 不要把 API Token 写入本仓库  
+- 现网 SSL 模式以实测为准：zone `agent-mate.ai` 现为 **Flexible**（2026-10-22 实测，旁证为无源站证书的 `hcp.agent-mate.ai` 可跑）；**避免 Flexible** 的目标不变，迁移是 zone 级动作，先补齐各 Host 源站证书再统一切 Full  
+- 新子域先灰云（DNS only）签 LE 证书，签成后切橙云；切橙后解析器/权威 NS 有最长 300 秒 TTL 缓存，勿据旧解析误判未生效  
 
 ## 待在会话中确认
 
