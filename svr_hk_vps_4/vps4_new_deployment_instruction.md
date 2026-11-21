@@ -1,4 +1,4 @@
-# 新项目部署说明 — 经 release-bot 发布到野草云4（域名 `{appname}.qiuge.me`）
+# 新项目部署说明 — 经 release-bot 发布到野草云4（默认域名 `{appname}.qiuge.me`）
 
 **读者：** 将要写入 **新应用仓库**、并计划用 **release-bot** 发布到 **野草云4** 的作者。  
 **应用仓库必须产出：** `deployment-plan.md`（路径可为 `specs/deployment-plan.md` 或仓库根目录 `deployment-plan.md`）。  
@@ -10,8 +10,8 @@
 | --- | --- |
 | 节点 IP | `68.64.176.124` |
 | 运维入口 | Portainer `https://portainer4.agent-mate.ai` · NPM `https://nginx4.agent-mate.ai` |
-| **应用公网域名约定** | **`{appname}.qiuge.me`**（例：`jobhunt.qiuge.me`） |
-| Cloudflare zone（应用） | **`qiuge.me`**（与运维用的 `agent-mate.ai` 分离） |
+| **应用公网域名约定** | `{appname}.qiuge.me` 为默认（例：`jobhunt.qiuge.me`）；应用 `deployment-plan.md` 也可指定 `*.agent-mate.ai` 子域（例：`erp-mock.agent-mate.ai`），以计划为准 |
+| Cloudflare zone（应用） | **`qiuge.me`**（与运维用的 `agent-mate.ai` 分离）；应用计划指定 `agent-mate.ai` 子域时用该 zone |
 
 对齐基准：[野草云4 资源清单](./hk_vps_4_settings.md) · [野草云3 同主题说明（中文）](../svr_hk_vps_3/new_deployment_instruction.md)。
 
@@ -22,15 +22,16 @@
 ### 0.1 公式
 
 ```text
-<APP_DOMAIN> = {appname}.qiuge.me
+<APP_DOMAIN> = {appname}.<APP_ZONE>
+默认 <APP_ZONE> = qiuge.me；应用 deployment-plan.md 可指定 agent-mate.ai 子域
 ```
 
 | 占位 | 含义 | 示例（求职应用） |
 | --- | --- | --- |
 | `{appname}` / `<APP_SLUG>` 对外段 | 短横线小写、DNS 友好 | `jobhunt` |
-| `<APP_DOMAIN>` | 完整公网主机名 | `jobhunt.qiuge.me` |
+| `<APP_DOMAIN>` | 完整公网主机名 | `jobhunt.qiuge.me` 或 `erp-mock.agent-mate.ai` |
 | `<APP_URL>` | 含协议 | `https://jobhunt.qiuge.me` |
-| Cloudflare zone | 只动 **`qiuge.me`** | 不要改 `agent-mate.ai` 上其他记录 |
+| Cloudflare zone | 只动**应用计划指定的 zone**（默认 `qiuge.me`） | 不要改该 zone 上其他应用的记录 |
 | DNS Name 栏 | 只填 `{appname}` | 填 `jobhunt`，**不要**填 `jobhunt.qiuge.me`（否则变成 `jobhunt.qiuge.me.qiuge.me`） |
 
 ### 0.2 命名建议（一次定好，全链路复用）
@@ -44,19 +45,19 @@
 | 卷名 | `<APP_SLUG>_…` | `jobhunt_data` |
 | DB 名 | 独立库，勿复用他应用 | `jobhunt_prod` |
 
-**禁止：** 把应用挂到 `*.agent-mate.ai`（该 zone 留给野草云3/4 运维入口与既有 agent-mate 产品），除非运维书面批准例外。
+**注意：** `agent-mate.ai` 上已有运维入口（`portainer4` / `nginx4`）与既有产品子域。应用 `deployment-plan.md` 指定 `agent-mate.ai` 子域时，子域必须唯一、不与既有记录冲突，且不得改 `portainer4` / `nginx4`。首例：`erp-mock.agent-mate.ai`（课堂 ERP 模拟 MCP，2026-11-21 定）。
 
 ### 0.3 流量路径
 
 ```text
 [浏览器]
-    → Cloudflare DNS（zone: qiuge.me，子域 {appname}）
+    → Cloudflare DNS（zone: <APP_ZONE>，子域 {appname}）
         → 野草云4 Nginx Proxy Manager（:80 / :443）
             → portainer_network 上的容器（如 jobhunt-web:3000）
                 → 外部 DB / LLM / 第三方
 ```
 
-运维控制台走 `agent-mate.ai` 的 `portainer4` / `nginx4`；**业务流量**走 `qiuge.me`。两者不要混在同一条 Proxy Host 里。
+运维控制台走 `agent-mate.ai` 的 `portainer4` / `nginx4`；业务流量走应用计划指定的 zone（默认 `qiuge.me`，或计划指定的 `agent-mate.ai` 子域）。一条 Proxy Host 只服务一个域名。
 
 ---
 
@@ -88,8 +89,8 @@
 
 野草云4 当前应用栈为空，但后续会多应用共存。你的计划必须：
 
-- 唯一 **Stack / 容器名 / 卷 / 主机端口 / `{appname}.qiuge.me` / DB 名**
-- **只**改本应用在 `qiuge.me` 的 DNS，以及本应用在 NPM 的一条 Proxy Host
+- 唯一 **Stack / 容器名 / 卷 / 主机端口 / `<APP_DOMAIN>` / DB 名**
+- **只**改本应用在 `<APP_ZONE>` 的 DNS，以及本应用在 NPM 的一条 Proxy Host
 - **不要**改 `portainer4` / `nginx4` / 其他应用 Host
 - 上线后抽查：**若节点上已有其他应用**，抽查 ≥1 个；若仍为空，在计划中写「首发，无既有应用可抽查」
 
@@ -117,19 +118,19 @@
 
 ## 3. 发布流程（计划必须可逐步作答）
 
-对齐 `knowledge/03-semi-auto-release.md`。下列表把 **qiuge.me** 定死进第 6–7 步：
+对齐 `knowledge/03-semi-auto-release.md`。下列表把 zone 与域名放进第 6–7 步（`<APP_ZONE>` / `<APP_DOMAIN>` 按应用 `deployment-plan.md`，默认 `qiuge.me`）：
 
 | 步骤 | 运维动作 | 计划中必须写清 |
 | --- | --- | --- |
 | 0 | 预检 | 仓库、git ref、服务、镜像、主机端口、`{appname}`、完整 `<APP_DOMAIN>`、DB |
-| 0b | 隔离门禁 | `STACK_NAME` / `APP_SLUG` / 端口 / `*.qiuge.me`；与野草云4 清单冲突说明 |
+| 0b | 隔离门禁 | `STACK_NAME` / `APP_SLUG` / 端口 / `<APP_DOMAIN>`；与野草云4 清单冲突说明 |
 | 1 | Compose | 生产 compose 路径；仅 `image:`；`external: portainer_network` |
 | 2 | CI → GHCR | 工作流；镜像名；**真实存在的** `IMAGE_TAG`（勿把分支名当 tag，见 ADR-002） |
 | 3 | Env | 变量**名**；`APP_URL=https://{appname}.qiuge.me` |
 | 4 | DB | 连通方式；迁移命令或「无需迁移」；独立 `<DB_NAME>` |
 | 5 | Portainer | 打开 **portainer4**；仅部署本 `STACK_NAME`；确认网络已存在 |
-| 6 | Cloudflare | **Zone = `qiuge.me`**；Type A；Name = `{appname}`；Content = `68.64.176.124`；先**灰云** |
-| 7 | NPM | 打开 **nginx4**；新建 Host：Domain = `{appname}.qiuge.me`；上游 `http://<container>:<容器端口>`；LE + Force SSL |
+| 6 | Cloudflare | Zone = `<APP_ZONE>`（应用计划指定，默认 `qiuge.me`）；Type A；Name = `{appname}`；Content = `68.64.176.124`；先**灰云** |
+| 7 | NPM | 打开 **nginx4**；新建 Host：Domain = `<APP_DOMAIN>`；上游 `http://<container>:<容器端口>`；LE + Force SSL |
 | 8 | 冒烟 | `https://{appname}.qiuge.me/` + 关键路径；既有应用抽查（若有） |
 
 **顺序：** DB 可达 → 容器 healthy → DNS（灰云）→ NPM 申证 → 冒烟。容器未好不要申公网证书。
@@ -147,7 +148,7 @@
 5. **`.env.prod.example`**：变量名清单，无真实密钥  
 6. 按需：迁移、SSE/WebSocket、Playwright/Xvfb、首次登录说明  
 
-生产路径必须是：**野草云4 + Portainer + GHCR + NPM + `{appname}.qiuge.me`**。若本地文档写 PM2/裸机，以本文为准（或写明已批准例外）。
+生产路径必须是：**野草云4 + Portainer + GHCR + NPM + `<APP_DOMAIN>`**（zone 按应用计划，默认 `qiuge.me`）。若本地文档写 PM2/裸机，以本文为准（或写明已批准例外）。
 
 ---
 
@@ -165,11 +166,11 @@
 - 运维入口：Portainer `https://portainer4.agent-mate.ai` · NPM `https://nginx4.agent-mate.ai`
 - Stack 名：`<STACK_NAME>`                 # 例：jobhunt
 - App slug：`<APP_SLUG>`                   # 例：jobhunt
-- 公网域名：`<APP_DOMAIN>` = `{appname}.qiuge.me`   # 例：jobhunt.qiuge.me
-- Cloudflare zone：`qiuge.me`（仅本应用子域）
+- 公网域名：`<APP_DOMAIN>` = `{appname}.<APP_ZONE>`   # 例：jobhunt.qiuge.me 或 erp-mock.agent-mate.ai
+- Cloudflare zone：`<APP_ZONE>`（默认 `qiuge.me`；仅本应用子域）
 
 ## 1. 架构（运行时）
-- 浏览器 → Cloudflare(`qiuge.me`) → NPM(野草云4) → 容器 → 外部 DB/API
+- 浏览器 → Cloudflare(`<APP_ZONE>`) → NPM(野草云4) → 容器 → 外部 DB/API
 - 单进程 / 多服务；持久化路径与卷名
 
 ## 2. 服务表
@@ -200,11 +201,11 @@
 - 迁移命令或「无需 / 启动自建」
 - 隔离声明
 
-## 7. DNS 与 TLS（qiuge.me）
-- Zone：`qiuge.me`
+## 7. DNS 与 TLS（zone：`<APP_ZONE>`）
+- Zone：`<APP_ZONE>`（应用 `deployment-plan.md` 指定；默认 `qiuge.me`）
 - 记录：Type **A** · Name **`{appname}`** · Content **`68.64.176.124`**
 - 代理：申请 Let's Encrypt 前用 **DNS only（灰云）**；成功后可按需橙云（Full / Full strict）
-- NPM Domain Names：必须精确为 `{appname}.qiuge.me`
+- NPM Domain Names：必须精确为 `<APP_DOMAIN>`
 - Forward：`http://<container_name>:<CONTAINER_PORT>`
 - Force SSL；证书 CN/SAN 与域名一致
 
@@ -220,7 +221,7 @@
 - [ ] 抽查野草云4 上 ≥1 既有应用（若有）；并确认未误改 `portainer4`/`nginx4`
 
 ## 10. 隔离清单（首次部署前）
-- [ ] Stack / 主机端口 / `{appname}.qiuge.me` / DB 名 vs [hk_vps_4_settings.md](./hk_vps_4_settings.md)
+- [ ] Stack / 主机端口 / `<APP_DOMAIN>` / DB 名 vs [hk_vps_4_settings.md](./hk_vps_4_settings.md)
 - [ ] 不重建 `portainer_network`
 - [ ] 不编辑其他 NPM Host；不改 `agent-mate.ai` 无关记录
 - [ ] 不触碰野草云3（`38.55.192.140`）
@@ -283,9 +284,9 @@ networks:
 
 ---
 
-## 7. DNS / NPM 操作细则（野草云4 + qiuge.me）
+## 7. DNS / NPM 操作细则（野草云4 + `<APP_ZONE>`）
 
-### 7.1 Cloudflare（zone：`qiuge.me`）
+### 7.1 Cloudflare（zone：`<APP_ZONE>`）
 
 1. 确认 zone **Active**（NS 已切到 Cloudflare）。  
 2. DNS → Add record：
@@ -296,20 +297,20 @@ networks:
 3. 用权威/DoH 确认解析到本机 IP 后再进 NPM 申证。  
 4. 证书成功后，若需橙云：打开代理，SSL/TLS 模式 **Full** 或 **Full (strict)**；长连接应用先评估超时。
 
-**禁止：** 在 `agent-mate.ai` 下误建同名业务子域，除非运维明确要求。
+**注意：** `agent-mate.ai` 子域仅在应用 `deployment-plan.md` 指定时使用；不建与运维入口（`portainer4` / `nginx4`）或既有产品同名、易混淆的子域。默认 zone 仍是 `qiuge.me`。
 
 ### 7.2 Nginx Proxy Manager（`nginx4`）
 
 1. 登录 `https://nginx4.agent-mate.ai`。  
 2. **Hosts → Proxy Hosts → Add**：
-   - Domain Names: `{appname}.qiuge.me`（一个域名一项，拼写核对）
+   - Domain Names: `<APP_DOMAIN>`（一个域名一项，拼写核对）
    - Scheme: `http`（上游为容器明文时）
    - Forward Hostname / IP: **`container_name`**
    - Forward Port: **容器端口**
    - Websockets：按应用需要  
 3. SSL 页：Request new certificate → Force SSL → Agree LE。  
 4. LE 邮箱须为**真实可收件地址**（勿用 `admin@example.com`；野草云4 曾因此申证失败）。  
-5. 保存后访问 `https://{appname}.qiuge.me`，确认不是 Default Site。
+5. 保存后访问 `https://<APP_DOMAIN>`，确认不是 Default Site。
 
 ### 7.3 Portainer（`portainer4`）
 
@@ -329,7 +330,7 @@ networks:
 | NPM 域名 | 与 DNS **逐字符一致**；错一个字母 → Default Site / `unrecognized_name` |
 | NPM 上游 | 容器名 + **容器**端口；主机端口仅调试 |
 | DNS Name 栏 | 只填 `{appname}`，不要填 FQDN |
-| Zone 搞错 | 业务在 `qiuge.me`；运维在 `agent-mate.ai` — 改错 zone 会伤到其他产品 |
+| Zone 搞错 | 只动应用计划指定的 zone；`agent-mate.ai` 上有运维入口与既有产品，改错会伤到其他产品 |
 | LE 邮箱 | 禁用示例邮箱；用真实邮箱 |
 | 申证时机 | 灰云且解析已指向本机后再 Request certificate |
 | Stack recreate | NPM 对本 Host 再 Save；agent 验 `/healthz`（ADR-003） |
@@ -342,7 +343,7 @@ networks:
 1. 将应用仓库的 `deployment-plan.md` 放入 `release-bot/Release-jobs/<job>/`（或指向应用仓库路径）。  
 2. 本文件（`svr_hk_vps_4/vps4_new_deployment_instruction.md`）作为**节点 + 域名约定**上下文；手册 `knowledge/` 提供逐步话术。  
 3. 收集占位符与野草云4 现网占用（更新 [hk_vps_4_settings.md](./hk_vps_4_settings.md)）。  
-4. 隔离门禁 → CI/GHCR → Portainer → Cloudflare(`qiuge.me`) → NPM → 冒烟。  
+4. 隔离门禁 → CI/GHCR → Portainer → Cloudflare(`<APP_ZONE>`) → NPM → 冒烟。  
 5. 会话笔记可入库；**密钥永不入库**。
 
 ---
@@ -350,13 +351,13 @@ networks:
 ## 10. 撰写 `deployment-plan.md` 的完成标准
 
 - [ ] §5 各节齐全（不用则标 N/A）  
-- [ ] `<APP_DOMAIN>` 符合 **`{appname}.qiuge.me`**，与 `APP_URL`、DNS、NPM 四处一致  
+- [ ] `<APP_DOMAIN>` 与 `APP_URL`、DNS、NPM 四处一致；zone 为应用计划指定的 `qiuge.me` 或 `agent-mate.ai` 子域  
 - [ ] 目标节点明确为野草云4（`68.64.176.124`），运维入口为 portainer4 / nginx4  
 - [ ] 服务/端口/镜像/stack/slug 无歧义  
 - [ ] Compose + CI 路径存在或列为阻塞  
 - [ ] Env 表仅名称；有 `.env.prod.example`  
 - [ ] 隔离与冒烟可执行；无密码/Token  
-- [ ] 生产路径为 Portainer + GHCR + NPM + `qiuge.me`（或书面例外）
+- [ ] 生产路径为 Portainer + GHCR + NPM + `<APP_DOMAIN>`（zone 按应用计划）
 
 ---
 
@@ -373,4 +374,4 @@ networks:
 | `.claude/skills/release-guide/SKILL.md` | Agent 对话协议 |
 | `specs/adr/` ADR-002 / ADR-003 | IMAGE_TAG；NPM Save + healthz |
 
-有疑问时：优先本节点共享栈 + `{appname}.qiuge.me` 约定，不要另造反代、registry 或把业务域名塞进 `agent-mate.ai`。
+有疑问时：优先本节点共享栈 + `{appname}.<APP_ZONE>` 约定（默认 `qiuge.me`），不要另造反代或 registry。`agent-mate.ai` 子域仅在应用 `deployment-plan.md` 指定时使用，且不得与运维入口（`portainer4` / `nginx4`）或既有产品冲突。
